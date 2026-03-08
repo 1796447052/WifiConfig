@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>需要使用蓝牙来配置设备的WiFi网络</string>
+    <string>闇�瑕佷娇鐢ㄨ摑鐗欒繛鎺ヨ澶囪繘琛學iFi閰嶇疆</string>
     <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>需要使用蓝牙来配置设备的WiFi网络</string>
+    <string>闇�瑕佷娇鐢ㄨ摑鐗欒繛鎺ヨ澶囪繘琛學iFi閰嶇疆</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>bluetooth-central</string>
@@ -13,7 +13,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>zh_CN</string>
     <key>CFBundleDisplayName</key>
-    <string>WiFi配网</string>
+    <string>WiFi閰嶇疆</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
