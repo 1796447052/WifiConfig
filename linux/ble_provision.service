@@ -1,0 +1,22 @@
+[Unit]
+Description=BLE WiFi Provisioning Service
+Documentation=https://github.com/example/ble-provision
+After=bluetooth.service dbus.service
+Requires=bluetooth.service dbus.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 3
+ExecStartPre=/usr/bin/bluetoothctl power on
+ExecStart=/usr/local/bin/ble_provision
+Restart=on-failure
+RestartSec=5
+User=root
+# Ensure system tools (nmcli, wpa_cli, ip, etc.) are on PATH
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

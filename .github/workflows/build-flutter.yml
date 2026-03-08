@@ -1,0 +1,148 @@
+name: Build Flutter App
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'flutter_app/**'
+      - '.github/workflows/build-flutter.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'flutter_app/**'
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      working-directory: flutter_app
+      run: flutter pub get
+    
+    - name: Analyze code
+      working-directory: flutter_app
+      run: flutter analyze
+    
+    - name: Run tests
+      working-directory: flutter_app
+      run: flutter test --no-pub
+    
+    - name: Build APK (Release)
+      working-directory: flutter_app
+      run: flutter build apk --release
+    
+    - name: Build App Bundle (Release)
+      working-directory: flutter_app
+      run: flutter build appbundle --release
+    
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wifi-provision-android-apk
+        path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+    
+    - name: Upload App Bundle artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wifi-provision-android-aab
+        path: flutter_app/build/app/outputs/bundle/release/app-release.aab
+        retention-days: 30
+
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      working-directory: flutter_app
+      run: flutter pub get
+    
+    - name: Build iOS (Release - No Codesign)
+      working-directory: flutter_app
+      run: flutter build ios --release --no-codesign
+    
+    - name: Create iOS archive
+      working-directory: flutter_app
+      run: |
+        cd build/ios/iphoneos
+        zip -r ../../../Runner.app.zip Runner.app
+    
+    - name: Upload iOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wifi-provision-ios
+        path: flutter_app/Runner.app.zip
+        retention-days: 30
+
+  # Release job - only runs on tag push
+  release:
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download Android APK
+      uses: actions/download-artifact@v4
+      with:
+        name: wifi-provision-android-apk
+        path: ./artifacts
+    
+    - name: Download Android AAB
+      uses: actions/download-artifact@v4
+      with:
+        name: wifi-provision-android-aab
+        path: ./artifacts
+    
+    - name: Download iOS
+      uses: actions/download-artifact@v4
+      with:
+        name: wifi-provision-ios
+        path: ./artifacts
+    
+    - name: Rename artifacts for release
+      run: |
+        mv artifacts/app-release.apk artifacts/wifi-provision-${{ github.ref_name }}-android.apk
+        mv artifacts/app-release.aab artifacts/wifi-provision-${{ github.ref_name }}-android.aab
+        mv artifacts/Runner.app.zip artifacts/wifi-provision-${{ github.ref_name }}-ios.zip
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/wifi-provision-${{ github.ref_name }}-android.apk
+          artifacts/wifi-provision-${{ github.ref_name }}-android.aab
+          artifacts/wifi-provision-${{ github.ref_name }}-ios.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

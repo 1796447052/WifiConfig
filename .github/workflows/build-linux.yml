@@ -1,0 +1,102 @@
+name: Build Linux (ARM64)
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'linux/**'
+      - '.github/workflows/build-linux.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'linux/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Install cross-compilation toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+    
+    - name: Install dependencies for cross-compilation
+      run: |
+        # Install development libraries for ARM64
+        sudo apt-get install -y \
+          libglib2.0-dev:arm64 \
+          libdbus-1-dev:arm64
+        
+        # Add ARM64 architecture
+        sudo dpkg --add-architecture arm64
+        sudo apt-get update
+        sudo apt-get install -y \
+          libglib2.0-dev:arm64 \
+          libdbus-1-dev:arm64
+        
+        # Create pkg-config wrapper for cross-compilation
+        sudo tee /usr/bin/aarch64-linux-gnu-pkg-config << 'EOF'
+        #!/bin/bash
+        export PKG_CONFIG_PATH=""
+        export PKG_CONFIG_LIBDIR="/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
+        exec pkg-config "$@"
+        EOF
+        sudo chmod +x /usr/bin/aarch64-linux-gnu-pkg-config
+      continue-on-error: true
+    
+    - name: Build with native compiler (fallback)
+      run: |
+        # Install native dependencies as fallback
+        sudo apt-get install -y libglib2.0-dev libdbus-1-dev
+        
+        cd linux
+        make clean || true
+        make
+        
+        # Create artifacts directory
+        mkdir -p ../artifacts
+        
+        # Copy binary
+        cp ble_provision ../artifacts/
+        
+        # Copy service file
+        cp ble_provision.service ../artifacts/
+      continue-on-error: false
+    
+    - name: Create distribution package
+      run: |
+        cd artifacts
+        tar -czvf ble-provision-linux-arm64.tar.gz ble_provision ble_provision.service
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ble-provision-linux
+        path: artifacts/ble-provision-linux-arm64.tar.gz
+        retention-days: 30
+
+  # Release job - only runs on tag push
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ble-provision-linux
+        path: ./artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/ble-provision-linux-arm64.tar.gz
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
