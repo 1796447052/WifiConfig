@@ -3,7 +3,7 @@
 # BLE WiFi Provisioning - Quick Install Script
 # 
 # 从 GitHub Release 下载预编译的二进制文件并安装
-# 用法: curl -fsSL https://raw.githubusercontent.com/1796447052/WifiConfig/main/quick-install.sh | sudo bash
+# 用法: curl -fsSL https://raw.githubusercontent.com/1796447052/WifiConfig/master/quick-install.sh | sudo bash
 # ============================================================
 
 set -e
@@ -69,9 +69,18 @@ if [[ -z "$LATEST_RELEASE" ]]; then
     log_warn "无法获取最新版本，尝试下载最新构建..."
     DOWNLOAD_URL="https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/latest/download/ble-provision-linux-arm64.tar.gz"
 else
-    TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\([^"]*\)"/\1/')
-    log_info "最新版本: $TAG"
-    DOWNLOAD_URL="https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/download/${TAG}/ble-provision-linux-arm64.tar.gz"
+    # Try python3 first (handles both compact and spaced JSON), then fall back to grep/cut
+    TAG=$(echo "$LATEST_RELEASE" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])" 2>/dev/null)
+    if [[ -z "$TAG" ]]; then
+        TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name" *: *"[^"]*"' | head -1 | cut -d'"' -f4)
+    fi
+    if [[ -n "$TAG" ]]; then
+        log_info "最新版本: $TAG"
+        DOWNLOAD_URL="https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/download/${TAG}/ble-provision-linux-arm64.tar.gz"
+    else
+        log_warn "无法解析版本号，尝试下载最新构建..."
+        DOWNLOAD_URL="https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/latest/download/ble-provision-linux-arm64.tar.gz"
+    fi
 fi
 
 # 下载
