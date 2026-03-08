@@ -6,6 +6,8 @@ on:
     paths:
       - 'flutter_app/**'
       - '.github/workflows/build-flutter.yml'
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
     paths:
@@ -56,18 +58,22 @@ jobs:
       working-directory: flutter_app
       run: flutter build appbundle --release
     
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: wifi-provision-android-apk
-        path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
+    - name: Prepare Android artifacts
+      run: |
+        mkdir -p dist
+        cp flutter_app/build/app/outputs/flutter-apk/app-release.apk dist/wifi-provision-android.apk
+        cp flutter_app/build/app/outputs/bundle/release/app-release.aab dist/wifi-provision-android.aab
+        
+        # Generate checksums
+        cd dist
+        sha256sum wifi-provision-android.apk > wifi-provision-android.apk.sha256
+        sha256sum wifi-provision-android.aab > wifi-provision-android.aab.sha256
     
-    - name: Upload App Bundle artifact
+    - name: Upload Android artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: wifi-provision-android-aab
-        path: flutter_app/build/app/outputs/bundle/release/app-release.aab
+        name: wifi-provision-android
+        path: dist/
         retention-days: 30
 
   build-ios:
@@ -92,57 +98,90 @@ jobs:
       working-directory: flutter_app
       run: flutter build ios --release --no-codesign
     
-    - name: Create iOS archive
-      working-directory: flutter_app
+    - name: Prepare iOS artifacts
       run: |
-        cd build/ios/iphoneos
-        zip -r ../../../Runner.app.zip Runner.app
+        mkdir -p dist
+        cd flutter_app/build/ios/iphoneos
+        zip -r ../../../dist/wifi-provision-ios.zip Runner.app
+        
+        cd ../../../dist
+        sha256sum wifi-provision-ios.zip > wifi-provision-ios.zip.sha256
     
-    - name: Upload iOS artifact
+    - name: Upload iOS artifacts
       uses: actions/upload-artifact@v4
       with:
         name: wifi-provision-ios
-        path: flutter_app/Runner.app.zip
+        path: dist/
         retention-days: 30
 
-  # Release job - only runs on tag push
+  # Release to GitHub Releases
   release:
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Run on tag push OR push to main/master branch
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    permissions:
+      contents: write
     
     steps:
-    - name: Download Android APK
+    - name: Download Android artifacts
       uses: actions/download-artifact@v4
       with:
-        name: wifi-provision-android-apk
-        path: ./artifacts
+        name: wifi-provision-android
+        path: ./android
     
-    - name: Download Android AAB
-      uses: actions/download-artifact@v4
-      with:
-        name: wifi-provision-android-aab
-        path: ./artifacts
-    
-    - name: Download iOS
+    - name: Download iOS artifacts
       uses: actions/download-artifact@v4
       with:
         name: wifi-provision-ios
-        path: ./artifacts
+        path: ./ios
     
-    - name: Rename artifacts for release
+    - name: Prepare release assets
       run: |
-        mv artifacts/app-release.apk artifacts/wifi-provision-${{ github.ref_name }}-android.apk
-        mv artifacts/app-release.aab artifacts/wifi-provision-${{ github.ref_name }}-android.aab
-        mv artifacts/Runner.app.zip artifacts/wifi-provision-${{ github.ref_name }}-ios.zip
+        mkdir -p release_assets
+        cp android/wifi-provision-android.apk release_assets/
+        cp android/wifi-provision-android.apk.sha256 release_assets/
+        cp android/wifi-provision-android.aab release_assets/
+        cp android/wifi-provision-android.aab.sha256 release_assets/
+        cp ios/wifi-provision-ios.zip release_assets/
+        cp ios/wifi-provision-ios.zip.sha256 release_assets/
     
-    - name: Create Release
+    # For tag releases (e.g., v1.0.0)
+    - name: Create Release (Tag)
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          artifacts/wifi-provision-${{ github.ref_name }}-android.apk
-          artifacts/wifi-provision-${{ github.ref_name }}-android.aab
-          artifacts/wifi-provision-${{ github.ref_name }}-ios.zip
+        files: release_assets/*
         generate_release_notes: true
+        draft: false
+        prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    # For main/master branch pushes - update "latest" release
+    - name: Create/Update Latest Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: Latest Build (Bleeding Edge)
+        body: |
+          ## Latest Development Build
+          
+          This is an automatically updated release from the latest commit on the `${{ github.ref_name }}` branch.
+          
+          **Commit:** ${{ github.sha }}
+          **Date:** ${{ github.event.head_commit.timestamp }}
+          
+          ### Included Files:
+          - **Android APK** - Direct install for Android devices
+          - **Android AAB** - For Google Play Store upload
+          - **iOS App** - Unsigned iOS app bundle (requires signing for installation)
+          
+          > ⚠️ **Warning:** This is a development build and may be unstable. For stable releases, use versioned releases.
+        files: release_assets/*
+        draft: false
+        prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
