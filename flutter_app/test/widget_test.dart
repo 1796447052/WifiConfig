@@ -2,7 +2,6 @@
 // Note: Full widget tests requiring BLE hardware are not supported in CI/CD.
 // Integration tests should be run on real devices or with proper mocking setup.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
