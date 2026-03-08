@@ -3,7 +3,7 @@
 # BLE WiFi Provisioning - Quick Install Script
 # 
 # 从 GitHub Release 下载预编译的二进制文件并安装
-# 用法: curl -fsSL https://raw.githubusercontent.com/USER/REPO/main/quick-install.sh | sudo bash
+# 用法: curl -fsSL https://raw.githubusercontent.com/1796447052/WifiConfig/main/quick-install.sh | sudo bash
 # ============================================================
 
 set -e
@@ -16,7 +16,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # 配置
-GITHUB_USER="your-username"  # 替换为你的 GitHub 用户名
+GITHUB_USER="1796447052"  # 替换为你的 GitHub 用户名
 GITHUB_REPO="WifiConfig"
 SERVICE_NAME="ble_provision"
 PREFIX="/usr/local"
