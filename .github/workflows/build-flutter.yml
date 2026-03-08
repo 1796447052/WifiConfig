@@ -102,9 +102,9 @@ jobs:
       run: |
         mkdir -p dist
         cd flutter_app/build/ios/iphoneos
-        zip -r ../../../dist/wifi-provision-ios.zip Runner.app
+        zip -r ../../../../dist/wifi-provision-ios.zip Runner.app
         
-        cd ../../../dist
+        cd ../../../../dist
         sha256sum wifi-provision-ios.zip > wifi-provision-ios.zip.sha256
     
     - name: Upload iOS artifacts
