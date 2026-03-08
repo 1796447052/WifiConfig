@@ -65,7 +65,35 @@
 
 ## Linux 端编译与运行
 
-### 依赖安装
+### 方法一：使用安装脚本（推荐）
+
+完整的安装脚本会自动安装依赖、编译程序并配置系统服务：
+
+```bash
+# 克隆仓库
+git clone https://github.com/YOUR_USERNAME/WifiConfig.git
+cd WifiConfig
+
+# 运行安装脚本
+sudo ./install.sh
+```
+
+安装脚本支持以下选项：
+- `--uninstall, -u` : 卸载程序和服务
+- `--skip-build, -s` : 跳过编译步骤
+- `--help, -h` : 显示帮助信息
+
+### 方法二：快速安装（从 Release）
+
+从 GitHub Release 下载预编译版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/WifiConfig/main/quick-install.sh | sudo bash
+```
+
+### 方法三：手动编译
+
+#### 依赖安装
 
 ```bash
 sudo apt-get update
@@ -78,20 +106,20 @@ sudo apt-get install -y \
     iw
 ```
 
-### 编译
+#### 编译
 
 ```bash
 cd linux
 make
 ```
 
-### 运行
+#### 运行
 
 ```bash
 sudo ./ble_provision
 ```
 
-### 安装为系统服务
+#### 安装为系统服务
 
 ```bash
 sudo make install
